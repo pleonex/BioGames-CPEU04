@@ -1,2 +1,2 @@
-# SpaceMonsters
-cloned from the pacman game, to change into space monsters
+# Tracking code for processing, using Open CV
+See comments in code.
