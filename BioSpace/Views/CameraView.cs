@@ -1,5 +1,5 @@
 ﻿//
-//  Program.cs
+//  CameraView.cs
 //
 //  Author:
 //       Benito Palacios Sánchez (aka pleonex) <benito356@gmail.com>
@@ -19,19 +19,37 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
-using BioSpace.Views;
-using System.Windows.Forms;
+using Emgu.CV;
+using Emgu.CV.UI;
 
-namespace BioSpace
+namespace BioSpace.Views
 {
-    class MainClass
+    public class CameraView : ImageBox
     {
-        [STAThread]
-        public static void Main()
+        private readonly VideoCapture capture;
+        private readonly Mat frame;
+
+        public CameraView(int idx)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainWindow());
+            frame = new Mat();
+            capture = new VideoCapture(idx);
+            capture.ImageGrabbed += ImageGrabbed;
+        }
+
+        public void Start()
+        {
+            capture.Start();
+            Size = new System.Drawing.Size(capture.Width + 1, capture.Height + 1);
+        }
+
+        private void ImageGrabbed(object sender, EventArgs e)
+        {
+            if (capture.Ptr == IntPtr.Zero)
+                return;
+            
+            capture.Retrieve(frame);
+            Image = frame;
         }
     }
 }
+
