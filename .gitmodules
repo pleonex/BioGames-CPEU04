@@ -1,0 +1,6 @@
+[submodule "xwt"]
+	path = xwt
+	url = http://github.com/mono/xwt
+[submodule "emgucv"]
+	path = emgucv
+	url = git://git.code.sf.net/p/emgucv/code
