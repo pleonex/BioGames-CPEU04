@@ -21,17 +21,31 @@
 using System;
 using Emgu.CV;
 using Emgu.CV.UI;
+using Emgu.CV.Structure;
+using System.Windows.Forms;
+using System.Drawing;
+using Emgu.CV.Util;
+using Emgu.CV.CvEnum;
+using System.Collections.Generic;
 
 namespace BioSpace.Views
 {
-    public class CameraView : ImageBox
+    public class CameraView : PictureBox
     {
         private readonly VideoCapture capture;
-        private readonly Mat frame;
+        private readonly Mat captureFrame;
+
+        private const int ContourThreshold = 80;        //  Contour detection sensitivity of the script
+        private const int SizeThreshold = 100;          //  Contour size threshold
+        private const int MovementMargin = 40;          //  Max difference in coordinates
+        private const int SegmentSize = 5;
+        private const int SegmentThreshold = SegmentSize * SegmentSize / 3;
+        private readonly Dictionary<Point, int> freqSegments = new Dictionary<Point, int>();
+        private ulong frames;
 
         public CameraView(int idx)
         {
-            frame = new Mat();
+            captureFrame = new Mat();
             capture = new VideoCapture(idx);
             capture.ImageGrabbed += ImageGrabbed;
         }
@@ -39,16 +53,72 @@ namespace BioSpace.Views
         public void Start()
         {
             capture.Start();
-            Size = new System.Drawing.Size(capture.Width + 1, capture.Height + 1);
+            Size = new Size(capture.Width * 2 + 1, capture.Height + 1);
         }
 
         private void ImageGrabbed(object sender, EventArgs e)
         {
             if (capture.Ptr == IntPtr.Zero)
                 return;
-            
-            capture.Retrieve(frame);
+
+            Bitmap frame = new Bitmap(capture.Width, capture.Height);
+            Graphics graphics = Graphics.FromImage(frame);
+
+            capture.Retrieve(captureFrame);
+            graphics.DrawImage(captureFrame.Bitmap, Point.Empty);
+
+            GetContour(graphics);
+
             Image = frame;
+        }
+
+        private void GetContour(Graphics graphics)
+        {
+            // Convert the image into gray scale.
+            var image = captureFrame.ToImage<Gray, byte>();
+
+            // Invert black and white colors.
+            image = image.Not();
+
+            // Apply a threshold to convert black into white.
+            image = image.ThresholdBinary(new Gray(ContourThreshold), new Gray(byte.MaxValue));
+            //graphics.DrawImage(image.Bitmap, 0, 0);
+            var imageData = (byte[,,])image.Data.Clone();
+
+            VectorOfVectorOfPoint contoursDetected = new VectorOfVectorOfPoint();
+            CvInvoke.FindContours(image, contoursDetected, null, RetrType.List,  ChainApproxMethod.ChainApproxSimple);
+            for (int i = 0; i < contoursDetected.Size; i++) {
+                if (CvInvoke.ContourArea(contoursDetected[i]) > 20)
+                    CvInvoke.DrawContours(image, contoursDetected, i, new MCvScalar(255, 0, 0));
+            }
+            graphics.DrawImage(image.Bitmap, 0, 0);
+
+            // Analyze image
+            for (int x = 1; x < captureFrame.Width; x += SegmentSize) {
+                for (int y = 1; y < captureFrame.Height; y += SegmentSize) {
+
+                    int segmentBrightness = 0;
+                    for (int i = 0; i < SegmentSize && x + i < captureFrame.Width; i++)
+                        for (int j = 0; j < SegmentSize && y + j < captureFrame.Height; j++)
+                            if (imageData[y + j, x + i, 0] < 127)
+                                segmentBrightness++;
+
+                    if (segmentBrightness > SegmentThreshold) {
+                        var point = new Point(x, y);
+
+                        if (!freqSegments.ContainsKey(point))
+                            freqSegments.Add(point, 0);
+                        else
+                            freqSegments[point]++;
+
+                        if (freqSegments[point] < frames * 0.2)
+                            graphics.DrawRectangle(Pens.Blue, x, y, 12, 12);
+                        
+                    }
+                }
+            }
+
+            frames++;
         }
     }
 }
