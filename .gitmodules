@@ -1,0 +1,3 @@
+[submodule "CSharp_TrackingCode/libs/emgucv"]
+	path = CSharp_TrackingCode/libs/emgucv
+	url = git://git.code.sf.net/p/emgucv/code
